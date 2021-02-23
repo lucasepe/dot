@@ -16,6 +16,16 @@ type Node struct {
 	seq   int
 }
 
+// ID returns the Node identifier
+func (n Node) ID() string {
+	return n.id
+}
+
+// Seq returns the Node sequential number
+func (n Node) Seq() int {
+	return n.seq
+}
+
 // Attr sets label=value and return the Node
 func (n Node) Attr(label string, value interface{}) Node {
 	n.AttributesMap.Attr(label, value)
