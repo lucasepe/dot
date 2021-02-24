@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -14,6 +15,7 @@ type Node struct {
 	graph *Graph
 	id    string
 	seq   int
+	label string
 }
 
 // ID returns the Node identifier
@@ -36,7 +38,7 @@ func (n Node) Attr(label string, value interface{}) Node {
 type Edge struct {
 	AttributesMap
 	graph    *Graph
-	from, to Node
+	from, to *Node
 }
 
 // Attr sets key=value and returns the Egde.
@@ -86,14 +88,11 @@ type Graph struct {
 	isCluster bool
 	graphType string
 	seq       int
-	nodes     map[string]Node
+	nodes     map[string]*Node
 	edgesFrom map[string][]Edge
 	subgraphs map[string]*Graph
 	parent    *Graph
-	sameRank  map[string][]Node
-	//
-	nodeInitializer func(Node)
-	edgeInitializer func(Edge)
+	sameRank  map[string][]*Node
 	//
 	nodeGlobalAttrs AttributesMap
 }
@@ -103,10 +102,10 @@ func NewGraph(options ...GraphOption) *Graph {
 	graph := &Graph{
 		AttributesMap:   AttributesMap{attributes: map[string]interface{}{}},
 		graphType:       Directed.Name,
-		nodes:           map[string]Node{},
+		nodes:           map[string]*Node{},
 		edgesFrom:       map[string][]Edge{},
 		subgraphs:       map[string]*Graph{},
-		sameRank:        map[string][]Node{},
+		sameRank:        map[string][]*Node{},
 		nodeGlobalAttrs: AttributesMap{attributes: map[string]interface{}{}},
 	}
 	for _, each := range options {
@@ -179,20 +178,21 @@ func (g *Graph) Subgraph(id string, options ...GraphOption) *Graph {
 		each.Apply(sub)
 	}
 	sub.parent = g
-	sub.edgeInitializer = g.edgeInitializer
-	sub.nodeInitializer = g.nodeInitializer
 	g.subgraphs[id] = sub
 	return sub
 }
 
-func (g *Graph) findNode(id string) (Node, bool) {
-	if n, ok := g.nodes[id]; ok {
-		return n, ok
+// FindNode finds a Node by it's label.
+func (g *Graph) FindNode(label string) (*Node, bool) {
+	for _, v := range g.nodes {
+		if v.label == label {
+			return v, true
+		}
 	}
 	if g.parent == nil {
-		return Node{id: "void"}, false
+		return &Node{}, false
 	}
-	return g.parent.findNode(id)
+	return g.parent.FindNode(label)
 }
 
 // nextSeq takes the next sequence number from the root graph
@@ -202,34 +202,25 @@ func (g *Graph) nextSeq() int {
 	return root.seq
 }
 
-// NodeInitializer sets a function that is called (if not nil) when a Node is implicitly created.
-func (g *Graph) NodeInitializer(callback func(n Node)) {
-	g.nodeInitializer = callback
-}
-
-// EdgeInitializer sets a function that is called (if not nil) when an Edge is implicitly created.
-func (g *Graph) EdgeInitializer(callback func(e Edge)) {
-	g.edgeInitializer = callback
-}
-
 // Node returns the node created with this id or creates a new node if absent.
 // The node will have a label attribute with the id as its value. Use Label() to overwrite this.
 // This method can be used as both a constructor and accessor.
 // not thread safe!
-func (g *Graph) Node(id string) Node {
-	if n, ok := g.findNode(id); ok {
-		return n
-	}
-	n := Node{
-		id:  id,
-		seq: g.nextSeq(), // create a new, use root sequence
+//
+// Node creates a new node.
+// Warning: if a Node with this identifier already exists it will be overwritten.
+func (g *Graph) Node(label string) *Node {
+	seq := g.nextSeq() // create a new, use root sequence
+	id := fmt.Sprintf("n%d", seq)
+	n := &Node{
+		id:    id,
+		seq:   seq,
+		label: label,
 		AttributesMap: AttributesMap{attributes: map[string]interface{}{
-			"label": id}},
+			"label": label}},
 		graph: g,
 	}
-	if g.nodeInitializer != nil {
-		g.nodeInitializer(n)
-	}
+
 	// store local
 	g.nodes[id] = n
 	return n
@@ -238,7 +229,7 @@ func (g *Graph) Node(id string) Node {
 // Edge creates a new edge between two nodes.
 // Nodes can be have multiple edges to the same other node (or itself).
 // If one or more labels are given then the "label" attribute is set to the edge.
-func (g *Graph) Edge(fromNode, toNode Node, labels ...string) Edge {
+func (g *Graph) Edge(fromNode, toNode *Node, labels ...string) Edge {
 	// assume fromNode owner == toNode owner
 	edgeOwner := g
 	if fromNode.graph != toNode.graph { // 1 or 2 are subgraphs
@@ -252,16 +243,14 @@ func (g *Graph) Edge(fromNode, toNode Node, labels ...string) Edge {
 	if len(labels) > 0 {
 		e.Attr("label", strings.Join(labels, ","))
 	}
-	if g.edgeInitializer != nil {
-		g.edgeInitializer(e)
-	}
+
 	edgeOwner.edgesFrom[fromNode.id] = append(edgeOwner.edgesFrom[fromNode.id], e)
 	return e
 }
 
 // FindEdges finds all edges in the graph that go from the fromNode to the toNode.
 // Otherwise, returns an empty slice.
-func (g *Graph) FindEdges(fromNode, toNode Node) (found []Edge) {
+func (g *Graph) FindEdges(fromNode, toNode *Node) (found []Edge) {
 	found = make([]Edge, 0)
 	edgeOwner := g
 	if fromNode.graph != toNode.graph {
@@ -283,7 +272,7 @@ func commonParentOf(one *Graph, two *Graph) *Graph {
 }
 
 // AddToSameRank adds the given nodes to the specified rank group, forcing them to be rendered in the same row
-func (g *Graph) AddToSameRank(group string, nodes ...Node) {
+func (g *Graph) AddToSameRank(group string, nodes ...*Node) {
 	g.sameRank[group] = append(g.sameRank[group], nodes...)
 }
 
@@ -312,12 +301,13 @@ func (g Graph) IndentedWrite(w *IndentWriter) {
 		w.NewLine()
 
 		// graph nodes global attributes
-		fmt.Fprintf(w, "node ")
-		g.nodeGlobalAttrs.Write(w, true)
-		fmt.Fprintf(w, ";")
+		if len(g.nodeGlobalAttrs.attributes) > 0 {
+			fmt.Fprintf(w, "node ")
+			g.nodeGlobalAttrs.Write(w, true)
+			fmt.Fprintf(w, ";")
+			w.NewLine()
+		}
 		w.NewLine()
-		w.NewLine()
-
 		// graph nodes
 		for _, key := range g.sortedNodesKeys() {
 			each := g.nodes[key]
@@ -356,7 +346,7 @@ func (g Graph) IndentedWrite(w *IndentWriter) {
 }
 
 // VisitNodes visits all nodes recursively
-func (g Graph) VisitNodes(callback func(node Node) (done bool)) {
+func (g Graph) VisitNodes(callback func(node *Node) (done bool)) {
 	for _, node := range g.nodes {
 		done := callback(node)
 		if done {
@@ -369,23 +359,10 @@ func (g Graph) VisitNodes(callback func(node Node) (done bool)) {
 	}
 }
 
-// FindNodeByID return node by identifier
-func (g Graph) FindNodeByID(id string) (foundNode Node, found bool) {
-	g.VisitNodes(func(node Node) (done bool) {
-		if node.id == id {
-			found = true
-			foundNode = node
-			return true
-		}
-		return false
-	})
-	return
-}
-
 // FindNodes returns all nodes recursively
-func (g Graph) FindNodes() (nodes []Node) {
-	var foundNodes []Node
-	g.VisitNodes(func(node Node) (done bool) {
+func (g Graph) FindNodes() (nodes []*Node) {
+	var foundNodes []*Node
+	g.VisitNodes(func(node *Node) (done bool) {
 		foundNodes = append(foundNodes, node)
 		return false
 	})
@@ -396,7 +373,13 @@ func (g *Graph) sortedNodesKeys() (keys []string) {
 	for each := range g.nodes {
 		keys = append(keys, each)
 	}
-	sort.StringSlice(keys).Sort()
+
+	sort.Slice(keys, func(i, j int) bool {
+		x, _ := strconv.Atoi(keys[i][1:])
+		y, _ := strconv.Atoi(keys[j][1:])
+		return x < y
+	})
+	//sort.StringSlice(keys).Sort()
 	return
 }
 func (g *Graph) sortedEdgesFromKeys() (keys []string) {

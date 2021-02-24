@@ -112,14 +112,10 @@ func TestSameRank(t *testing.T) {
 	di.Edge(foo1, foo2)
 	di.Edge(foo1, bar)
 	di.AddToSameRank("top-row", foo1, foo2)
-	if got, want := flatten(di.String()), `digraph  {n3[label="bar"];n1[label="foo1"];n2[label="foo2"];n1->n2;n1->n3;{rank=same; n1;n2;};}`; got != want {
+
+	if got, want := flatten(di.String()), `digraph  {n1[label="foo1"];n2[label="foo2"];n3[label="bar"];n1->n2;n1->n3;{rank=same; n1;n2;};}`; got != want {
 		t.Errorf("got [%v] want [%v]", got, want)
 	}
-}
-
-// remove tabs and newlines and spaces
-func flatten(s string) string {
-	return strings.Replace((strings.Replace(s, "\n", "", -1)), "\t", "", -1)
 }
 
 func TestDeleteLabel(t *testing.T) {
@@ -134,21 +130,21 @@ func TestDeleteLabel(t *testing.T) {
 func TestGraph_FindNodeById_emptyGraph(t *testing.T) {
 	di := NewGraph(Directed)
 
-	_, found := di.FindNodeByID("F")
+	_, found := di.FindNode("F")
 
 	if got, want := found, false; got != want {
 		t.Errorf("got [%v] want [%v]", got, want)
 	}
 }
 
-func TestGraph_FindNodeById_multiNodeGraph(t *testing.T) {
+func TestGraph_FindNodeByLabel(t *testing.T) {
 	di := NewGraph(Directed)
 	di.Node("A")
 	di.Node("B")
 
-	node, found := di.FindNodeByID("A")
+	node, found := di.FindNode("A")
 
-	if got, want := node.id, "A"; got != want {
+	if got, want := node.label, "A"; got != want {
 		t.Errorf("got [%v] want [%v]", got, want)
 	}
 
@@ -157,16 +153,16 @@ func TestGraph_FindNodeById_multiNodeGraph(t *testing.T) {
 	}
 }
 
-func TestGraph_FindNodeById_multiNodesInSubGraphs(t *testing.T) {
+func TestGraph_FindNodeInSubGraphs(t *testing.T) {
 	di := NewGraph(Directed)
 	di.Node("A")
 	di.Node("B")
 	sub := di.Subgraph("new subgraph")
 	sub.Node("C")
 
-	node, found := di.FindNodeByID("C")
+	node, found := sub.FindNode("C")
 
-	if got, want := node.id, "C"; got != want {
+	if got, want := node.label, "C"; got != want {
 		t.Errorf("got [%v] want [%v]", got, want)
 	}
 
@@ -175,7 +171,7 @@ func TestGraph_FindNodeById_multiNodesInSubGraphs(t *testing.T) {
 	}
 }
 
-func TestGraph_FindNodes_multiNodesInSubGraphs(t *testing.T) {
+func TestGraph_FindNodesInSubGraphs(t *testing.T) {
 	di := NewGraph(Directed)
 	di.Node("A")
 	di.Node("B")
@@ -198,33 +194,6 @@ func TestLabelWithEscaping(t *testing.T) {
 	}
 }
 
-func TestGraphNodeInitializer(t *testing.T) {
-	di := NewGraph(Directed)
-	di.NodeInitializer(func(n Node) {
-		n.Attr("test", "test")
-	})
-	n := di.Node("A")
-	if got, want := n.attributes["test"], "test"; got != want {
-		t.Errorf("got [%v:%T] want [%v:%T]", got, got, want, want)
-	}
-}
-
-func TestGraphEdgeInitializer(t *testing.T) {
-	di := NewGraph(Directed)
-	di.EdgeInitializer(func(e Edge) {
-		e.Attr("test", "test")
-	})
-	di.Edge(di.Node("A"), di.Node("B"))
-
-	els := di.FindEdges(di.Node("A"), di.Node("B"))
-	if len(els) != 1 {
-		t.Errorf("len(els) shoud be 1")
-	}
-	if got, want := els[0].attributes["test"], "test"; got != want {
-		t.Errorf("got [%v:%T] want [%v:%T]", got, got, want, want)
-	}
-}
-
 func TestGraphCreateNodeOnce(t *testing.T) {
 	di := NewGraph(Undirected)
 	n1 := di.Node("A")
@@ -232,4 +201,9 @@ func TestGraphCreateNodeOnce(t *testing.T) {
 	if got, want := n1, n2; &n1 == &n2 {
 		t.Errorf("got [%v:%T] want [%v:%T]", got, got, want, want)
 	}
+}
+
+// remove tabs and newlines and spaces
+func flatten(s string) string {
+	return strings.Replace((strings.Replace(s, "\n", "", -1)), "\t", "", -1)
 }
