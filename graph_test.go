@@ -55,7 +55,7 @@ func TestGraph_FindEdges(t *testing.T) {
 	di := NewGraph(Directed)
 	n1 := di.Node("A")
 	n2 := di.Node("B")
-	want := []Edge{di.Edge(n1, n2)}
+	want := []*Edge{di.Edge(n1, n2)}
 	got := di.FindEdges(n1, n2)
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("TestGraph.FindEdges() = %v, want %v", got, want)

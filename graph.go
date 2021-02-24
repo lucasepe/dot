@@ -19,17 +19,17 @@ type Node struct {
 }
 
 // ID returns the Node identifier
-func (n Node) ID() string {
+func (n *Node) ID() string {
 	return n.id
 }
 
 // Seq returns the Node sequential number
-func (n Node) Seq() int {
+func (n *Node) Seq() int {
 	return n.seq
 }
 
 // Attr sets label=value and return the Node
-func (n Node) Attr(label string, value interface{}) Node {
+func (n *Node) Attr(label string, value interface{}) *Node {
 	n.AttributesMap.Attr(label, value)
 	return n
 }
@@ -42,7 +42,7 @@ type Edge struct {
 }
 
 // Attr sets key=value and returns the Egde.
-func (e Edge) Attr(key string, value interface{}) Edge {
+func (e *Edge) Attr(key string, value interface{}) *Edge {
 	e.AttributesMap.Attr(key, value)
 	return e
 }
@@ -89,7 +89,7 @@ type Graph struct {
 	graphType string
 	seq       int
 	nodes     map[string]*Node
-	edgesFrom map[string][]Edge
+	edgesFrom map[string][]*Edge
 	subgraphs map[string]*Graph
 	parent    *Graph
 	sameRank  map[string][]*Node
@@ -103,7 +103,7 @@ func NewGraph(options ...GraphOption) *Graph {
 		AttributesMap:   AttributesMap{attributes: map[string]interface{}{}},
 		graphType:       Directed.Name,
 		nodes:           map[string]*Node{},
-		edgesFrom:       map[string][]Edge{},
+		edgesFrom:       map[string][]*Edge{},
 		subgraphs:       map[string]*Graph{},
 		sameRank:        map[string][]*Node{},
 		nodeGlobalAttrs: AttributesMap{attributes: map[string]interface{}{}},
@@ -229,13 +229,13 @@ func (g *Graph) Node(label string) *Node {
 // Edge creates a new edge between two nodes.
 // Nodes can be have multiple edges to the same other node (or itself).
 // If one or more labels are given then the "label" attribute is set to the edge.
-func (g *Graph) Edge(fromNode, toNode *Node, labels ...string) Edge {
+func (g *Graph) Edge(fromNode, toNode *Node, labels ...string) *Edge {
 	// assume fromNode owner == toNode owner
 	edgeOwner := g
 	if fromNode.graph != toNode.graph { // 1 or 2 are subgraphs
 		edgeOwner = commonParentOf(fromNode.graph, toNode.graph)
 	}
-	e := Edge{
+	e := &Edge{
 		from:          fromNode,
 		to:            toNode,
 		AttributesMap: AttributesMap{attributes: map[string]interface{}{}},
@@ -250,8 +250,8 @@ func (g *Graph) Edge(fromNode, toNode *Node, labels ...string) Edge {
 
 // FindEdges finds all edges in the graph that go from the fromNode to the toNode.
 // Otherwise, returns an empty slice.
-func (g *Graph) FindEdges(fromNode, toNode *Node) (found []Edge) {
-	found = make([]Edge, 0)
+func (g *Graph) FindEdges(fromNode, toNode *Node) (found []*Edge) {
+	found = make([]*Edge, 0)
 	edgeOwner := g
 	if fromNode.graph != toNode.graph {
 		edgeOwner = commonParentOf(fromNode.graph, toNode.graph)
