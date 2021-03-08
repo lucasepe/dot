@@ -22,9 +22,9 @@ func TestIndentWriter(t *testing.T) {
 
 	got := b.String()
 	want := `doc {
-	chapter {
-		chapter text
-	}
+  chapter {
+    chapter text
+  }
 }`
 	if got != want {
 		t.Fail()

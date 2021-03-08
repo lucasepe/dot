@@ -272,10 +272,19 @@ func (g *Graph) IndentedWrite(w *IndentWriter) {
 			each := g.subgraphs[key]
 			each.IndentedWrite(w)
 		}
+
 		// graph attributes
 		appendSortedMap(g.AttributesMap.attributes, false, w)
 		w.NewLine()
-		// graph nodes
+		w.NewLine()
+
+		// node global attributes
+		fmt.Fprint(w, "node ")
+		appendSortedMap(g.nodeAttrs.attributes, true, w)
+		w.NewLine()
+		w.NewLine()
+
+		// nodes
 		for _, key := range g.sortedNodesKeys() {
 			each := g.nodes[key]
 			fmt.Fprintf(w, "n%d", each.seq)
@@ -283,7 +292,9 @@ func (g *Graph) IndentedWrite(w *IndentWriter) {
 			fmt.Fprintf(w, ";")
 			w.NewLine()
 		}
-		// graph edges
+		w.NewLine()
+
+		// edges
 		denoteEdge := "->"
 		if g.graphType == "graph" {
 			denoteEdge = "--"
@@ -297,6 +308,7 @@ func (g *Graph) IndentedWrite(w *IndentWriter) {
 				w.NewLine()
 			}
 		}
+
 		for _, nodes := range g.sameRank {
 			str := ""
 			for _, n := range nodes {
@@ -306,6 +318,7 @@ func (g *Graph) IndentedWrite(w *IndentWriter) {
 			w.NewLine()
 		}
 	})
+
 	fmt.Fprintf(w, "}")
 	w.NewLine()
 }

@@ -5,6 +5,10 @@ import (
 	"io"
 )
 
+const (
+	space = "  "
+)
+
 // IndentWriter is a writer with indentation.
 type IndentWriter struct {
 	level  int
@@ -19,7 +23,7 @@ func NewIndentWriter(w io.Writer) *IndentWriter {
 // Indent writes a tab `\t` to the writer
 func (i *IndentWriter) Indent() {
 	i.level++
-	fmt.Fprint(i.writer, "\t")
+	fmt.Fprint(i.writer, space)
 }
 
 // BackIndent decrements the current indentation level.
@@ -47,7 +51,7 @@ func (i *IndentWriter) NewLineIndentWhile(block func()) {
 func (i *IndentWriter) NewLine() {
 	fmt.Fprint(i.writer, "\n")
 	for j := 0; j < i.level; j++ {
-		fmt.Fprint(i.writer, "\t")
+		fmt.Fprint(i.writer, space)
 	}
 }
 
