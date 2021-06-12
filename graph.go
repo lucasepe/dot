@@ -284,6 +284,14 @@ func (g *Graph) IndentedWrite(w *IndentWriter) {
 			w.NewLine()
 		}
 
+		// node global attributes
+		if len(g.nodeAttrs.attributes) > 0 {
+			w.NewLine()
+			fmt.Fprint(w, "node")
+			appendSortedMap(g.nodeAttrs.attributes, true, w)
+			w.NewLine()
+		}
+
 		// subgraphs
 		if len(g.subgraphs) > 0 {
 			keys := g.sortedSubgraphsKeys()
@@ -295,14 +303,6 @@ func (g *Graph) IndentedWrite(w *IndentWriter) {
 					each.IndentedWrite(w)
 				}
 			}
-		}
-
-		// node global attributes
-		if len(g.nodeAttrs.attributes) > 0 {
-			fmt.Fprint(w, "node ")
-			appendSortedMap(g.nodeAttrs.attributes, true, w)
-			w.NewLine()
-			w.NewLine()
 		}
 
 		// nodes
