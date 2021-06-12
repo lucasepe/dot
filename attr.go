@@ -90,3 +90,11 @@ func (a *AttributesMap) Write(wri io.Writer, mustBracket bool) {
 		fmt.Fprint(wri, ";")
 	}
 }
+
+type Attribute func(*AttributesMap)
+
+func WithLabel(label string) Attribute {
+	return func(am *AttributesMap) {
+		am.Attr("label", label)
+	}
+}

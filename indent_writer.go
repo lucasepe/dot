@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	space = "  "
+	space = "\t"
 )
 
 // IndentWriter is a writer with indentation.

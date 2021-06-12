@@ -19,11 +19,11 @@ This is a modified fork of the [great project](https://github.com/emicklei/dot/)
 	
 	func main() {
 		g := dot.NewGraph(dot.Directed)
-		n1 := g.Node("coding")
-		n2 := g.Node("testing a little").Box()
+		n1 := g.Node(WithLabel("coding"))
+		n2 := g.Node(WithLabel("testing a little")).Box()
 	
 		g.Edge(n1, n2)
-		g.Edge(n2, n1, "back").Attr("color", "red")
+		g.Edge(n2, n1, WithLabel("back")).Attr("color", "red")
 	
 		fmt.Println(g.String())
 	}
@@ -39,25 +39,10 @@ Output
 
 Subgraphs
 
-	s := g.Subgraph("cluster")
+	s := g.NewSubgraph()
+	s.Attr("label", "My Subgraph")
 	s.Attr("style","filled")
 
-
-Initializers
-
-	g := dot.NewGraph(dot.Directed)
-	g.NodeInitializer(func(n dot.Node) {
-		n.Attr("shape", "rectangle")
-		n.Attr("fontname", "arial")
-		n.Attr("style", "rounded,filled")
-	})
-
-	g.EdgeInitializer(func(e dot.Edge) {
-		e.Attr("fontname", "arial")
-		e.Attr("fontsize", "9")
-		e.Attr("arrowsize", "0.8")
-		e.Attr("arrowhead", "open")
-	})
 
 HTML and Literal values
 
@@ -67,33 +52,38 @@ HTML and Literal values
 Nodes Global Attributes
 
     g := dot.NewGraph(dot.Directed)
-	g.NodeGlobalAttrs("shape", "plaintext", "color", "blue")
+	g.NodeBaseAttrs().Attr("shape", "plaintext").Attr("color", "blue")
 	// Override shape for node `A`
-	n1 := g.Node("A").Attr("shape", "box")
+	n1 := g.Node(WithLabel("A")).Attr("shape", "box")
 
 ## cluster example
 
 ![](./_examples/cluster.png)
 
 	di := dot.NewGraph(dot.Directed)
-	outside := di.Node("Outside")
+	di.Attr("rankdir", "LR")
+	outside := di.Node(dot.WithLabel("Outside"))
 
 	// A
-	clusterA := di.Subgraph("Cluster A", dot.ClusterOption{})
-	insideOne := clusterA.Node("one")
-	insideTwo := clusterA.Node("two")
-	
-	// B
-	clusterB := di.Subgraph("Cluster B", dot.ClusterOption{})
-	insideThree := clusterB.Node("three")
-	insideFour := clusterB.Node("four")
+	clusterA := di.NewSubgraph()
+	clusterA.Attr("label", "Cluster A")
 
-	// edges
+	insideOne := clusterA.Node(dot.WithLabel("one"))
+	insideTwo := clusterA.Node(dot.WithLabel("two"))
+
+	// B
+	clusterB := di.NewSubgraph()
+	clusterB.Attr("label", "Cluster B")
+
+	insideThree := clusterB.Node(dot.WithLabel("three"))
+	insideFour := clusterB.Node(dot.WithLabel("four"))
+
 	di.Edge(outside, insideFour)
 	di.Edge(insideFour, insideOne)
 	di.Edge(insideOne, insideTwo)
 	di.Edge(insideTwo, insideThree)
 	di.Edge(insideThree, outside)
+
 
 ## About dot attributes
 

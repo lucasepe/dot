@@ -126,8 +126,8 @@ func (g *Graph) Label(label string) *Graph {
 	return g
 }
 
-// NodeAttrs returns the node global attributes.
-func (g *Graph) NodeAttrs() *AttributesMap {
+// NodeBaseAttrs returns the node global attributes.
+func (g *Graph) NodeBaseAttrs() *AttributesMap {
 	return &g.nodeAttrs
 }
 
@@ -150,19 +150,30 @@ func (g *Graph) FindSubgraph(id string) (*Graph, bool) {
 	return sub, ok
 }
 
-// Subgraph returns the Graph with the given id ; creates one if absent.
-// The label attribute is also set to the id ; use Label() to overwrite it.
-func (g *Graph) Subgraph(id string, options ...GraphOption) *Graph {
-	sub, ok := g.subgraphs[id]
-	if ok {
-		return sub
+// FindSubgraphByLabel returns the subgraph of the graph or one from its parents.
+func (g *Graph) FindSubgraphByLabel(label string) (*Graph, bool) {
+	for _, el := range g.subgraphs {
+		if l := el.Value("label"); l != nil {
+			if l.(string) == label {
+				return el, true
+			}
+		}
 	}
-	sub = NewGraph(Sub)
+
+	if g.parent != nil {
+		return g.parent.FindSubgraphByLabel(label)
+	}
+
+	return nil, false
+}
+
+// Subgraph creates a new subgraph.
+func (g *Graph) NewSubgraph() *Graph {
+	id := fmt.Sprintf("cluster_%d", g.nextSeq())
+
+	sub := NewGraph(Sub)
+	sub.id = id
 	sub.Attr("label", id) // for consistency with Node creation behavior.
-	sub.id = fmt.Sprintf("s%d", g.nextSeq())
-	for _, each := range options {
-		each.Apply(sub)
-	}
 	sub.parent = g
 	g.subgraphs[id] = sub
 	return sub
@@ -267,55 +278,86 @@ func (g *Graph) Write(w io.Writer) {
 func (g *Graph) IndentedWrite(w *IndentWriter) {
 	fmt.Fprintf(w, "%s %s {", g.graphType, g.id)
 	w.NewLineIndentWhile(func() {
-		// subgraphs
-		for _, key := range g.sortedSubgraphsKeys() {
-			each := g.subgraphs[key]
-			each.IndentedWrite(w)
+		// graph attributes
+		if len(g.AttributesMap.attributes) > 0 {
+			appendSortedMap(g.AttributesMap.attributes, false, w)
+			w.NewLine()
 		}
 
-		// graph attributes
-		appendSortedMap(g.AttributesMap.attributes, false, w)
-		w.NewLine()
-		w.NewLine()
+		// subgraphs
+		if len(g.subgraphs) > 0 {
+			keys := g.sortedSubgraphsKeys()
+
+			for _, key := range keys {
+				w.NewLine()
+				if each, ok := g.FindSubgraph(key); ok {
+					//each := g.subgraphs[key]
+					each.IndentedWrite(w)
+				}
+			}
+		}
 
 		// node global attributes
-		fmt.Fprint(w, "node ")
-		appendSortedMap(g.nodeAttrs.attributes, true, w)
-		w.NewLine()
-		w.NewLine()
+		if len(g.nodeAttrs.attributes) > 0 {
+			fmt.Fprint(w, "node ")
+			appendSortedMap(g.nodeAttrs.attributes, true, w)
+			w.NewLine()
+			w.NewLine()
+		}
 
 		// nodes
-		for _, key := range g.sortedNodesKeys() {
-			each := g.nodes[key]
-			fmt.Fprintf(w, "n%d", each.seq)
-			appendSortedMap(each.attributes, true, w)
-			fmt.Fprintf(w, ";")
+		if tot := len(g.nodes); tot > 0 {
 			w.NewLine()
+
+			nodeKeys := g.sortedNodesKeys()
+
+			for i, key := range nodeKeys {
+				each := g.nodes[key]
+				fmt.Fprintf(w, "n%d", each.seq)
+				appendSortedMap(each.attributes, true, w)
+				fmt.Fprintf(w, ";")
+				if i < tot-1 {
+					w.NewLine()
+				}
+			}
 		}
-		w.NewLine()
 
 		// edges
-		denoteEdge := "->"
-		if g.graphType == "graph" {
-			denoteEdge = "--"
-		}
-		for _, each := range g.sortedEdgesFromKeys() {
-			all := g.edgesFrom[each]
-			for _, each := range all {
-				fmt.Fprintf(w, "n%d%sn%d", each.from.seq, denoteEdge, each.to.seq)
-				appendSortedMap(each.attributes, true, w)
-				fmt.Fprint(w, ";")
-				w.NewLine()
+		if tot := len(g.edgesFrom); tot > 0 {
+			w.NewLine()
+			w.NewLine()
+
+			denoteEdge := "->"
+			if g.graphType == "graph" {
+				denoteEdge = "--"
+			}
+
+			edgeKeys := g.sortedEdgesFromKeys()
+
+			for i, each := range edgeKeys {
+				all := g.edgesFrom[each]
+				for _, each := range all {
+					fmt.Fprintf(w, "n%d%sn%d", each.from.seq, denoteEdge, each.to.seq)
+					appendSortedMap(each.attributes, true, w)
+					fmt.Fprint(w, ";")
+					if i < tot-1 {
+						w.NewLine()
+					}
+				}
 			}
 		}
 
-		for _, nodes := range g.sameRank {
-			str := ""
-			for _, n := range nodes {
-				str += fmt.Sprintf("n%d;", n.seq)
-			}
-			fmt.Fprintf(w, "{rank=same; %s};", str)
+		if tot := len(g.sameRank); tot > 0 {
 			w.NewLine()
+
+			for _, nodes := range g.sameRank {
+				str := ""
+				for _, n := range nodes {
+					str += fmt.Sprintf("n%d;", n.seq)
+				}
+				fmt.Fprintf(w, "{rank=same; %s};", str)
+				w.NewLine()
+			}
 		}
 	})
 
@@ -419,7 +461,7 @@ func (g *Graph) sortedNodesKeys() (keys []string) {
 	sort.Slice(keys, func(i, j int) bool {
 		x, _ := strconv.Atoi(keys[i][1:])
 		y, _ := strconv.Atoi(keys[j][1:])
-		return x < y
+		return x > y
 	})
 	return
 }
@@ -428,15 +470,22 @@ func (g *Graph) sortedEdgesFromKeys() (keys []string) {
 	for each := range g.edgesFrom {
 		keys = append(keys, each)
 	}
-	sort.StringSlice(keys).Sort()
+
+	sort.Slice(keys, func(i, j int) bool {
+		x, _ := strconv.Atoi(keys[i][1:])
+		y, _ := strconv.Atoi(keys[j][1:])
+		return x > y
+	})
+
 	return
 }
 
 func (g *Graph) sortedSubgraphsKeys() (keys []string) {
-	for each := range g.subgraphs {
-		keys = append(keys, each)
+	for _, v := range g.subgraphs {
+		keys = append(keys, v.id)
 	}
-	sort.StringSlice(keys).Sort()
+
+	sort.Sort(sort.Reverse(sort.StringSlice(keys)))
 	return
 }
 
