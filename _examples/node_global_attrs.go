@@ -10,11 +10,12 @@ import (
 
 func main() {
 	g := dot.NewGraph(dot.Directed)
-	g.NodeGlobalAttrs("shape", "plaintext", "color", "blue")
+	g.NodeBaseAttrs().Attr("shape", "plaintext").Attr("color", "blue")
 	// Override shape for node `A`
-	n1 := g.Node("A").Attr("shape", "box")
-	n2 := g.Node("B")
-	n3 := g.Node("C")
+	n1 := g.Node(dot.WithLabel("A"))
+	n1.Attr("shape", "box")
+	n2 := g.Node(dot.WithLabel("B"))
+	n3 := g.Node(dot.WithLabel("C"))
 
 	g.Edge(n1, n2)
 	g.Edge(n2, n3).Attr("color", "red")

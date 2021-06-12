@@ -10,17 +10,22 @@ import (
 
 func main() {
 	di := dot.NewGraph(dot.Directed)
-	outside := di.Node("Outside")
+	di.Attr("rankdir", "LR")
+	outside := di.Node(dot.WithLabel("Outside"))
 
 	// A
-	clusterA := di.Subgraph("Cluster A", dot.ClusterOption{})
-	insideOne := clusterA.Node("one")
-	insideTwo := clusterA.Node("two")
+	clusterA := di.NewSubgraph()
+	clusterA.Attr("label", "Cluster A")
+
+	insideOne := clusterA.Node(dot.WithLabel("one"))
+	insideTwo := clusterA.Node(dot.WithLabel("two"))
 
 	// B
-	clusterB := di.Subgraph("Cluster B", dot.ClusterOption{})
-	insideThree := clusterB.Node("three")
-	insideFour := clusterB.Node("four")
+	clusterB := di.NewSubgraph()
+	clusterB.Attr("label", "Cluster B")
+
+	insideThree := clusterB.Node(dot.WithLabel("three"))
+	insideFour := clusterB.Node(dot.WithLabel("four"))
 
 	di.Edge(outside, insideFour)
 	di.Edge(insideFour, insideOne)
